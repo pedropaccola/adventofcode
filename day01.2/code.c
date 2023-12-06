@@ -5,11 +5,11 @@
 #define NUM_DIGITS 9
  
 typedef struct {
-	 char word[16];
+	 char* word;
 	 int value;
-} DigitWord;
+} lookup_t;
 
-const DigitWord digitWords[] = {
+const lookup_t gTable[] = {
 	{"one", 1},
 	{"two", 2},
 	{"three", 3},
@@ -25,59 +25,13 @@ int isDigit(char c) {
 	return (c >= '0' && c <= '9');
 }
 
-int KMPSearch(char* pattern, char* text, int reverse) {
-	int M = strlen(pattern);
-	int N = strlen(text);
-	int result = -1;
-
-	if (M == 0) {
-		return 0;
-	}
-
-	int lps[M];
-	lps[0] = 0;
-
-	int prevLPS = 0;
-	int i = 1;
-
-	while (i < M) {
-		if (pattern[i] == pattern[prevLPS]) {
-			lps[i] = prevLPS + 1;
-			prevLPS++;
-			i++;
-		} else {
-			if (prevLPS != 0) {
-				prevLPS = lps[prevLPS - 1];
-			} else {
-				lps[i] = 0;
-				i++;
-			}
+int match(char* string) {
+	for (int i = 0; i < NUM_DIGITS; i++) {
+		if (strncmp(gTable[i].word, string, strlen(gTable[i].word)) == 0) {
+			return gTable[i].value;		
 		}
 	}
-
-	i = 0;
-	int j = 0;
-
-	while (i < N) {
-		if (text[i] == pattern[j]) {
-			i++;
-			j++;
-			if (j == M) {
-				if (reverse == 0) {
-					return i - j;
-				} else {
-					result = i - j;
-				}
-			}
-		} else {
-			if (j == 0) {
-				i++;	
-			} else {
-				j = lps[j-1];
-			}
-		}
-	}
-	return result;
+	return -1;
 }
 
 int main(int argc, char* argv[]) {
@@ -91,36 +45,37 @@ int main(int argc, char* argv[]) {
 	}
 
 	while (fgets(buffer, sizeof(buffer), fp) != NULL) {
-		char* firstDigit = NULL;
-		char* lastDigit = NULL;
-		char* firstAlpha = NULL;
-		char* lastAlpha = NULL;
-		char temp[2];
+		int first = -1;
+		int last = -1;
 
 		for (int i = 0; i < strlen(buffer); i++) {
-			if (isDigit(buffer[i]) == 0) {
-				continue;
+			if (isDigit(buffer[i]) != 0) {
+				if (first == -1) {
+					first = buffer[i] - '0';
+				}
+
+				last = buffer[i] - '0';
+			} else {
+				int matchnum = match(&buffer[i]);
+				if (matchnum == -1) {
+					continue;
+				}
+
+				if (first == -1) {
+					first = matchnum;
+				}
+
+				last = matchnum;
 			}
 
-			if (firstDigit == NULL) {
-				firstDigit = &buffer[i];
-			}
-
-			lastDigit = &buffer[i];
 		}
 			
-		if (firstDigit == NULL || lastDigit == NULL) {
+		if (first == -1 || last == -1) {
 			printf("Error: error on string %s\n", buffer);
 			continue;
 		}
 
-		// for (int i = 0; i < NUM_DIGITS; i++) {
-		// 	
-		// }
-
-		temp[0] = *firstDigit;
-		temp[1] = *lastDigit;
-		result += atoi(temp);
+		result += (first * 10) + last;
 	}
 
 	printf("%d\n", result);

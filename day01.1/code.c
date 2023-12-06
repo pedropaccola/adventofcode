@@ -1,8 +1,10 @@
 #include <stdio.h>
 #include <string.h>
-#include <ctype.h>
 #include <stdlib.h>
 
+int isDigit(char c) {
+	return (c >= '0' && c <= '9');
+}
 int main(int argc, char* argv[]) {
 	FILE* fp = fopen(argv[1], "r");
 	char buffer[1024];
@@ -14,29 +16,27 @@ int main(int argc, char* argv[]) {
 	}
 
 	while (fgets(buffer, sizeof(buffer), fp) != NULL) {
-		char* first = NULL;
-		char* last = NULL;
-		char temp[3];
+		int first = -1;
+		int last = -1;
 
 		for (int i = 0; i < strlen(buffer); i++) {
-			if (isdigit(buffer[i]) == 0) {
+			if (isDigit(buffer[i]) == 0) {
 				continue;
 			}
 
-			if (first == NULL) {
-				first = &buffer[i];
+			if (first == -1) {
+				first =buffer[i] - '0';
 			}
 
-			last = &buffer[i];
+			last = buffer[i] - '0';
 		}
 
-		if (first == NULL || last == NULL) {
+		if (first == -1 || last == -1) {
 			printf("Error: error on string: %s", buffer);
 		}
 
-		temp[0] = *first;
-		temp[1] = *last;
-		result += atoi(temp);
+
+		result += (first * 10) + (last);
 	}
 
 	printf("%d\n", result);
