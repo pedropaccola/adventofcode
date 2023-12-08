@@ -2,89 +2,135 @@
 #include <string.h>
 #include <stdlib.h>
 
-#define R_CUBES 12
-#define G_CUBES 13
-#define B_CUBES 14
+#define BUFFER_SIZE 1024 
+#define TOKENS_SIZE 2048
 
-typedef struct {
-	char* color;
-	int value;
-} lookup_t;
-
-const lookup_t cTable[] = {
-	{"red", R_CUBES},
-	{"green", G_CUBES},
-	{"blue", B_CUBES},
+enum TokenType {
+	TOKEN_NUMBER,
+	TOKEN_SYMBOL,
+	TOKEN_EOF // Terminator
 };
+
+typedef struct Token {
+	enum TokenType type;
+	char* value;
+	int row;
+	int col;
+	int len;
+} Token;
 
 int isDigit(char c) {
 	return (c >= '0' && c <= '9');
 }
 
-int isValidGame(char* string, int cubes) {
-	int numColors = sizeof(cTable)/sizeof(lookup_t);
-	for (int i = 0; i < numColors; i++) {
-		if (strncmp(string ,cTable[i].color, strlen(cTable[i].color)) != 0) {
-			continue;
-		}
-		if (cubes > cTable[i].value) {
-			return 0;
+Token* tokenize(Token* tokens, char* input, int row) {
+	int inpLength = strlen(input);
+	int col = 0;
+	int tokenIndex = 0;
+	for (int i = 0; tokens[i].type != TOKEN_EOF; i++) {tokenIndex++;} // Continue replacing the terminator with next token
+
+	while (col < inpLength) {
+		if (isDigit(input[col])) {
+			tokens[tokenIndex].type = TOKEN_NUMBER;
+			int length = 0;
+			while (isDigit(input[col])) {
+				length++;
+				col++;
+			}
+			tokens[tokenIndex].value = malloc(sizeof(char) * (length + 1));
+			strncpy(tokens[tokenIndex].value, &input[col - length], length);
+			tokens[tokenIndex].value[length] = '\0';
+			tokens[tokenIndex].row = row;
+			tokens[tokenIndex].col = col - length;
+			tokens[tokenIndex].len = length;
+			tokenIndex++;
+		} else if (input[col] == '.' || input[col] == '\n') {
+			col++;
+		} else {
+			tokens[tokenIndex].type = TOKEN_SYMBOL;
+			tokens[tokenIndex].value = malloc(sizeof(char) * 2);
+			sprintf(tokens[tokenIndex].value, "%c", input[col]);
+			tokens[tokenIndex].row = row;
+			tokens[tokenIndex].col = col;
+			tokens[tokenIndex].len = 1;
+			tokenIndex++;
+			col++;
 		}
 	}
-	return 1;
+	tokens[tokenIndex].type = TOKEN_EOF; // Terminates
+	return tokens;
+}
+
+int parse(Token* tokens) {
+	int result = 0;
+	
+	// Continue replacing the terminator with next token
+	for (int i = 0; tokens[i].type != TOKEN_EOF; i++) {
+		if (tokens[i].type != TOKEN_NUMBER) {
+			continue;
+		}
+
+		int startCol = tokens[i].col;
+		int endCol = tokens[i].col + tokens[i].len;
+		int row = tokens[i].row;
+
+		for (int j = 0; tokens[j].type != TOKEN_EOF; j++) {
+			if (tokens[j].type != TOKEN_SYMBOL) {continue;}
+			else if (tokens[j].row < row - 1 || tokens[j].row > row + 1) {continue;}
+			else if (tokens[j].row == row && (tokens[j].col < startCol - 1 || tokens[j].col > endCol + 1)) {continue;}
+			else if ((tokens[j].row == row - 1 || tokens[j].row == row + 1) && (tokens[j].col < startCol - 1 || tokens[j].col > endCol + 1)) {continue;}
+
+			int value = atoi(tokens[i].value);
+			result += value;
+			printf("ADJECENT Value: %d, Row: %d, Sum: %d\n", value, row, result);
+			break;
+		}
+
+
+	}
+	return result;
 }
 
 int main(int argc, char* argv[]) {
 	FILE* fp = fopen(argv[1], "r");
-	char buffer[1024];
-	int result = 0;
+	char fBuffer[BUFFER_SIZE];
+
+	Token* tokens = malloc(sizeof(Token) * TOKENS_SIZE);
+	tokens[0].type = TOKEN_EOF; // Terminates
+	int row = -1;
 
 	if (fp == NULL) {
 		printf("Error: error opening file\n");
 		return 1;
 	}
 
-	while (fgets(buffer, sizeof(buffer), fp) != NULL) {
-		const char* outerDelimiter = ":;\n";
-		const char* innerDelimiter = ", ";
-		char* outerSave = NULL;
-		char* innerSave = NULL;
-		int game = 0;
-		int validGame = 1;
+	// Tokenize line by line
+	while (fgets(fBuffer, sizeof(fBuffer), fp) != NULL) {
+		row++;
 
-		char* outerToken = strtok_r(buffer, outerDelimiter, &outerSave);
-		for (int i = 0; i < strlen(outerToken); i++) {
-			if (isDigit(outerToken[i])) {
-				game = (game * 10) + (outerToken[i] - 0x30);
-			}
-		}
-
-		outerToken = strtok_r(NULL, outerDelimiter, &outerSave);
-		while (outerToken != NULL) {
-			int flag = 0;
-
-			char* innerToken = strtok_r(outerToken, innerDelimiter, &innerSave);
-			while (innerToken != NULL && validGame) {
-				int cubes = atoi(innerToken);
-
-				innerToken = strtok_r(NULL, innerDelimiter, &innerSave);
-
-				validGame = isValidGame(innerToken, cubes);
-				if (!validGame) {
-					game = 0;
-					break;
-				}
-
-				innerToken = strtok_r(NULL, innerDelimiter, &innerSave);
-			}
-
-			outerToken = strtok_r(NULL, outerDelimiter, &outerSave);
-		}
-
-		result += game;
+		tokens = tokenize(tokens, fBuffer, row);
 	}
 
+	// // Printer
+	// for (int i = 0; tokens[i].type != TOKEN_EOF; i++) {
+	// 	char* type;
+	// 	switch (tokens[i].type) {
+	// 		case 0: type = "TOKEN_NUMBER"; break;
+	// 		case 1: type = "TOKEN_SYMBOL"; break;
+	// 		default: type = "TOKEN_EOF"; break;
+	// 	}
+	// 	printf("Token Type: %s, Number: %d, Value: %s, Row: %d, Col: %d, Len: %d\n", type, i, tokens[i].value, tokens[i].row, tokens[i].col, tokens[i].len);
+	// }
+
+	int result = parse(tokens);
 	printf("%d\n", result);
+
+	// Free
+	for (int i = 0; tokens[i].type != TOKEN_EOF; i++) {
+		free(tokens[i].value);
+	}
+	free(tokens);
+
 	fclose(fp);
 	return 0;
 }
