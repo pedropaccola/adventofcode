@@ -47,12 +47,7 @@ int findWinners(int** winNumbers, int** myNumbers) {
 
 	for (int i = 0; myNumbers[i] != NULL; i++) {
 		for (int j = 0; winNumbers[j] != NULL; j++) {
-			if (*myNumbers[i] != *winNumbers[j]) {
-				continue;
-			}
-			if (result > 0) {
-				result *= 2;
-			} else {
+			if (*myNumbers[i] == *winNumbers[j]) {
 				result++;
 			}
 		}
@@ -70,10 +65,17 @@ void freeMemory(int** array) {
 }
 
 int main(int argc, char* argv[]) {
+	if (argc < 2) {
+		perror("Error");
+		return 1;
+	}
+
 	FILE* fp = fopen(argv[1], "r");
 	char fBuffer[BUFFER_SIZE];
+	int scratchCount[BUFFER_SIZE]; 
+	for (int i = 0; i < BUFFER_SIZE; i++) {scratchCount[i] = 1;} // Starts with one of each ticket
+	int card = 0;  // One card per line - to keep track
 	int result = 0;
-	int card = 0; 
 
 	if (fp == NULL) {
 		perror("Error");
@@ -82,12 +84,14 @@ int main(int argc, char* argv[]) {
 
 	while (fgets(fBuffer, sizeof(fBuffer), fp) != NULL) {
 		printf("%s", fBuffer);
+		
+		// for the strtok_r function
 		const char* delim = ":|\n";
 		char* token;
 		char* token_save;
+
 		int* winNumbers[SCRATCH_SIZE] = {NULL};
 		int* myNumbers[SCRATCH_SIZE] = {NULL};
-		card++;
 
 		token = strtok_r(fBuffer, delim, &token_save); // Card number, ignored
 
@@ -97,11 +101,15 @@ int main(int argc, char* argv[]) {
 		token = strtok_r(NULL, delim, &token_save);
 		parse(myNumbers, token);
 
-		int cardResult = findWinners(winNumbers, myNumbers);
+		int cardResult = findWinners(winNumbers, myNumbers); // how many subsequent tickets will be incremented 
+		for (int i = 0; i < cardResult; i++) {
+			scratchCount[card + i + 1] += scratchCount[card];
+		}
 
-		result += cardResult;
-		printf("Card result: %d, Result so far: %d\n", cardResult, result);
+		result += scratchCount[card];
+		printf("Card: %d, Card result: %d, amount of cards: %d, Result so far: %d\n",card+1, cardResult, scratchCount[card], result);
 
+		card++;
 		freeMemory(winNumbers);
 		freeMemory(myNumbers);
 	}
