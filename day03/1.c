@@ -44,7 +44,7 @@ Token* tokenize(Token* tokens, char* input, int row) {
 			tokens[tokenIndex].col = col - length;
 			tokens[tokenIndex].len = length;
 			tokenIndex++;
-		} else if (input[col] == '.' || input[col] == '\n') {
+		} else if (input[col] == '.') {
 			col++;
 		} else {
 			tokens[tokenIndex].type = TOKEN_SYMBOL;
@@ -71,18 +71,26 @@ int parse(Token* tokens) {
 		}
 
 		int startCol = tokens[i].col;
-		int endCol = tokens[i].col + tokens[i].len;
+		int endCol = tokens[i].col + tokens[i].len - 1;
 		int row = tokens[i].row;
 
 		for (int j = 0; tokens[j].type != TOKEN_EOF; j++) {
-			if (tokens[j].type != TOKEN_SYMBOL) {continue;}
-			else if (tokens[j].row < row - 1 || tokens[j].row > row + 1) {continue;}
-			else if (tokens[j].row == row && (tokens[j].col < startCol - 1 || tokens[j].col > endCol + 1)) {continue;}
-			else if ((tokens[j].row == row - 1 || tokens[j].row == row + 1) && (tokens[j].col < startCol - 1 || tokens[j].col > endCol + 1)) {continue;}
+			if (tokens[j].type != TOKEN_SYMBOL) {
+				continue;
+			}
+			else if (tokens[j].row < row - 1 || tokens[j].row > row + 1) {
+				continue;
+			}
+			else if ((tokens[j].row == row - 1 || tokens[j].row == row + 1) && (tokens[j].col < startCol - 1 || tokens[j].col > endCol + 1)) {
+				continue;
+			}
+			else if (tokens[j].row == row && (tokens[j].col < startCol - 1 || tokens[j].col > endCol + 1)) {
+				continue;
+			}
 
 			int value = atoi(tokens[i].value);
 			result += value;
-			printf("ADJECENT Value: %d, Row: %d, Sum: %d\n", value, row, result);
+			// printf("ADJECENT: Value: %d, Row: %d, Sum: %d, Symbol: %s\n", value, row, result, tokens[j].value);
 			break;
 		}
 
@@ -106,12 +114,19 @@ int main(int argc, char* argv[]) {
 
 	// Tokenize line by line
 	while (fgets(fBuffer, sizeof(fBuffer), fp) != NULL) {
+		// Remove the newline character if it exists
+		int len = strlen(fBuffer);
+
+		if (len > 0 && fBuffer[len - 1] == '\n') {
+			fBuffer[len - 1] = '\0';
+		}
+
 		row++;
 
 		tokens = tokenize(tokens, fBuffer, row);
 	}
 
-	// // Printer
+	// Printer
 	// for (int i = 0; tokens[i].type != TOKEN_EOF; i++) {
 	// 	char* type;
 	// 	switch (tokens[i].type) {
@@ -119,11 +134,11 @@ int main(int argc, char* argv[]) {
 	// 		case 1: type = "TOKEN_SYMBOL"; break;
 	// 		default: type = "TOKEN_EOF"; break;
 	// 	}
-	// 	printf("Token Type: %s, Number: %d, Value: %s, Row: %d, Col: %d, Len: %d\n", type, i, tokens[i].value, tokens[i].row, tokens[i].col, tokens[i].len);
+	// 	printf("Token Type: %s, Value: %s, Row: %d, Col: %d, Len: %d\n", type, tokens[i].value, tokens[i].row, tokens[i].col, tokens[i].len);
 	// }
 
 	int result = parse(tokens);
-	printf("%d\n", result);
+	printf("Sum: %d\n", result);
 
 	// Free
 	for (int i = 0; tokens[i].type != TOKEN_EOF; i++) {
