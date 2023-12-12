@@ -12,8 +12,13 @@ typedef struct {
 	long length;
 } mapping_t;
 
+typedef struct {
+	long start;
+	long length;
+} seeds_t;
+
 mapping_t **maps[MAX_CATEGORIES] = {NULL};
-long seeds[BUFFER_SIZE];
+seeds_t seeds[BUFFER_SIZE];
 int num_seeds = 0;
 
 int is_digit(char c) 
@@ -38,7 +43,7 @@ int parse_file(const char* filename)
 		if (strncmp(buffer, "seeds:", strlen("seeds:")) == 0) {
 			int pointer = 0;
 			int n;
-			while (sscanf(buffer + pointer, "%*[^0123456789]%ld%n", &seeds[num_seeds], &n) == 1) {
+			while (sscanf(buffer + pointer, "%*[^0123456789]%ld %ld%n", &seeds[num_seeds].start, &seeds[num_seeds].length, &n) == 2) {
 				pointer += n;
 				num_seeds++;
 			}
@@ -72,7 +77,7 @@ int parse_file(const char* filename)
 	}
 	// printf("Seeds: ");
 	// for (int i = 0; i < num_seeds; i++) {
-	// printf("%ld -", seeds[i]);
+	// printf("%ld to %ld - ", seeds[i].start, seeds[i].start + seeds[i].length - 1);
 	// }
 	// printf("\n");
 	// for (int category = 0; category < MAX_CATEGORIES; category++) {
@@ -91,9 +96,9 @@ long find_location(long seed) {
 		for (int mapping = 0; maps[category][mapping]; mapping++) {
 			if (current >= maps[category][mapping]->source &&
 				current < maps[category][mapping]->source + maps[category][mapping]->length) {
-				// printf("Found mapping for seed %d. Category %d. Mapping %d. Old value: %d ", seed, category + 1, mapping + 1, current);
+				// printf("Found mapping for seed %ld. Category %d. Mapping %d. Old value: %ld ", seed, category + 1, mapping + 1, current);
 				current += maps[category][mapping]->dest - maps[category][mapping]->source;
-				// printf("New value: %d\n", current);
+				// printf("New value: %ld\n", current);
 				break;
 			}
 		}
@@ -114,9 +119,12 @@ int main(int argc, char* argv[])
 	
 	long lowest_location = LONG_MAX;
 	for (int i = 0; i < num_seeds; i++) {
-		long result = find_location(seeds[i]);
-		if (result < lowest_location) {
-			lowest_location = result;
+		printf("%d - range of seeds: %ld to %ld\n",i + 1,seeds[i].start, seeds[i].start + seeds[i].length - 1);
+		for (long j = 0; j < seeds[i].length; j++) {
+			long result = find_location(seeds[i].start + j);
+			if (result < lowest_location) {
+				lowest_location = result;
+			}
 		}
 	}
 
