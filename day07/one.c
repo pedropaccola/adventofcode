@@ -63,8 +63,10 @@ int main(int argc, char* argv[])
 		set_scoring(&players[i]);
 	}
 
-	print_players(players, players_size);
+	// print_players(players, players_size);
 	sort_players(players, 0, players_size - 1, players_size);
+	printf("\n\nSorted:\n");
+	print_players(players, players_size);
 
 	int result = total_winnings(players, players_size);
 	printf("Result: %d\n", result);
@@ -130,45 +132,38 @@ static int parse_card(const char card)
 static void set_scoring(Player* player) 
 {
 	int cards[15] = {0};
-	for (size_t i = 0; i < 5; i++) {
-		cards[player->cards[i]]++;
-	}
-
+	int max_count = 0;
 	int has_two = 0;
-	int has_three = 0;
-	for (size_t i = 2; i < 15; i++) {
-		if (cards[i] == 2) {
-			if (has_two) {
-				player->scoring = TYPE_TWO_PAIR;
-				return;
-			}
-			has_two = 1;
-		} else if (cards[i] == 3) {
-			has_three = 1;
-		} else if (cards[i] == 4) {
-			player->scoring = TYPE_FOUR_OF_A_KIND;
-			return;
-		} else if (cards[i] == 5) {
-			player->scoring = TYPE_FIVE_OF_A_KIND;
-			return;
-		}
+	
+	for (size_t i = 0; i < HAND_SIZE; i++) {
+		int card_value = player->cards[i];
+		cards[card_value]++;
 	}
 
-	if (has_three) {
-		if (has_two) {
-			player->scoring = TYPE_FULL_HOUSE;
-		} else {
-			player->scoring = TYPE_THREE_OF_A_KIND;
-		}
+	for (size_t i = 0; i < 15; i++) {
+		int card_value = i;
+		if (cards[card_value] >= max_count) max_count = cards[card_value];
+		if (cards[card_value] == 2) has_two++;
+	}
+
+	if (max_count == 5) {
+		player->scoring = TYPE_FIVE_OF_A_KIND;
 		return;
-	}
-
-	if (has_two) {
-		player->scoring = TYPE_ONE_PAIR;
+	} else if (max_count == 4) {
+		player->scoring = TYPE_FOUR_OF_A_KIND;
+		return;
+	} else if (max_count == 3) {
+		if (has_two > 0) player->scoring = TYPE_FULL_HOUSE;
+		else player->scoring = TYPE_THREE_OF_A_KIND;
+		return;
+	} else if (max_count == 2) {
+		if (has_two > 1) player->scoring = TYPE_TWO_PAIR;
+		else player->scoring = TYPE_ONE_PAIR;
 		return;
 	}
 
 	player->scoring = TYPE_HIGH;
+	return;
 }
 
 static void print_players(const Player* players, size_t size)
@@ -185,18 +180,20 @@ static void print_players(const Player* players, size_t size)
 
 static size_t sort_partition(Player* players, size_t low, size_t high)
 {
-	size_t greatest_idx = low - 1;
+	size_t temp_pivot = low - 1;
 
 	for (size_t i = low; i < high; i++) {
-		if (!compare_players(players[i], players[high])) {
-			greatest_idx++;
-			swap_players(&players[i], &players[greatest_idx]);
+		int result = compare_players(players[i], players[high]);
+		if (result != 1) {
+			temp_pivot++;
+			swap_players(&players[i], &players[temp_pivot]);
 		}
 	}
 	
-	swap_players(&players[greatest_idx+1], &players[high]);
+	temp_pivot++;
+	swap_players(&players[temp_pivot], &players[high]);
 
-	return greatest_idx + 1;
+	return temp_pivot;
 }
 static void sort_players(Player* players, size_t low, size_t high, size_t size)
 {
@@ -211,19 +208,28 @@ static void sort_players(Player* players, size_t low, size_t high, size_t size)
 static int compare_players(const Player player_1, const Player player_2) 
 {
 	/* 
-	 * return 1 if player 1 > player 2
-	 * return 0 otherwise
+	 * player 1 > player 2 return 1
+	 * player 1 < player 2 return -1
+	 * player 1 == player 2 return 0
 	 * supposing two tied players won't have the same cards in the same order
 	*/ 
-	if (player_1.scoring != player_2.scoring) {
-		return player_1.scoring > player_2.scoring;
-	}
+	if (player_1.scoring > player_2.scoring) {
+		return 1;
+	} else if (player_1.scoring < player_2.scoring) {
+		return -1;
+	} else {
+		size_t i = 0;
+		while (i < HAND_SIZE && player_1.cards[i] == player_2.cards[i]) {
+			i++;
+		}
 
-	size_t i = 0;
-	while (i < HAND_SIZE && player_1.cards[i] == player_2.cards[i]) {
-		i++;
+		if (i < HAND_SIZE && player_1.cards[i] > player_2.cards[i]) {
+			return 1;
+		} else if (i < HAND_SIZE && player_1.cards[i] < player_2.cards[i]) {
+			return -1;
+		}
 	}
-	return player_1.cards[i] > player_2.cards[i];
+	return 0;
 }
 static void swap_players(Player* player_1, Player* player_2)
 {

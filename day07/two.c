@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -131,46 +132,44 @@ static int parse_card(const char card)
 static void set_scoring(Player* player) 
 {
 	int cards[15] = {0};
-	for (size_t i = 0; i < HAND_SIZE; i++) {
-		cards[player->cards[i]]++;
-	}
-
+	int max_count = 0;
+	int joker_count = 0;
 	int has_two = 0;
-	int has_three = 0;
+
+	for (size_t i = 0; i < HAND_SIZE; i++) {
+		int card_value = player->cards[i];
+		cards[card_value]++;
+	}
+
 	for (size_t i = 2; i < 15; i++) {
-		int cards_amount = (cards[i] == 0) ? cards[i] : cards[i] + cards[1];
-		if (cards_amount == 2 && i != 1) {
-			if (has_two) {
-				player->scoring = TYPE_TWO_PAIR;
-				return;
-			}
-			has_two = 1;
-		} else if (cards_amount == 3) {
-			has_three = 1;
-		} else if (cards_amount == 4) {
-			player->scoring = TYPE_FOUR_OF_A_KIND;
-			return;
-		} else if (cards_amount == 5) {
-			player->scoring = TYPE_FIVE_OF_A_KIND;
-			return;
+		int card_value = i;
+		if (cards[card_value] >= max_count) {
+			max_count = cards[card_value];
 		}
+		if (cards[card_value] == 2) has_two++;
 	}
+	joker_count = cards[1];
 
-	if (has_three) {
-		if (has_two) {
-			player->scoring = TYPE_FULL_HOUSE;
-		} else {
-			player->scoring = TYPE_THREE_OF_A_KIND;
-		}
+	if (max_count == 5 || joker_count == 5 || max_count + joker_count == 5) {  // edge case -> joker_count == 5 
+		player->scoring = TYPE_FIVE_OF_A_KIND;
+		return;
+	} else if (max_count == 4 || max_count + joker_count == 4) {
+		player->scoring = TYPE_FOUR_OF_A_KIND;
+		return;
+	} else if (max_count == 3 || max_count + joker_count == 3) {
+		if (has_two > 0 && joker_count == 0) player->scoring = TYPE_FULL_HOUSE;
+		else if (has_two > 1 && joker_count > 0) player->scoring = TYPE_FULL_HOUSE;    // edge case -> must have 2 pairs and a joker, or 1 pair without jokers
+		else player->scoring = TYPE_THREE_OF_A_KIND;
+		return;
+	} else if (max_count == 2 || max_count + joker_count == 2) {
+		if (has_two > 1) player->scoring = TYPE_TWO_PAIR;
+		else player->scoring = TYPE_ONE_PAIR;
 		return;
 	}
 
-	if (has_two) {
-		player->scoring = TYPE_ONE_PAIR;
-		return;
-	}
-
+	assert(joker_count == 0);
 	player->scoring = TYPE_HIGH;
+	return;
 }
 
 static void print_players(const Player* players, size_t size)
@@ -180,7 +179,7 @@ static void print_players(const Player* players, size_t size)
 		for (size_t j = 0; j < HAND_SIZE; j++) {
 			printf("%d - ", players[i].cards[j]);
 		}
-		printf("Player bid = %d - ", players[i].bid);
+		// printf("Player bid = %d - ", players[i].bid);
 		printf("Player scoring = %s\n", scoring_names[players[i].scoring]);
 	}
 }
@@ -191,7 +190,6 @@ static size_t sort_partition(Player* players, size_t low, size_t high)
 	size_t temp_pivot = low - 1;
 
 	for (size_t i = low; i < high; i++) {
-
 		int result = compare_players(players[i], pivot);
 		if (result != 1) {
 			temp_pivot++;
