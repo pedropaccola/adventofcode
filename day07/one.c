@@ -45,7 +45,7 @@ static int compare_players(const Player, const Player);
 static void swap_players(Player*, Player*);
 
 static size_t sort_partition(Player*, size_t, size_t);
-static void sort_players(Player*, size_t, size_t);
+static void sort_players(Player*, size_t, size_t, size_t);
 
 int main(int argc, char* argv[]) 
 {
@@ -63,7 +63,8 @@ int main(int argc, char* argv[])
 		set_scoring(&players[i]);
 	}
 
-	sort_players(players, 0, players_size - 1);
+	print_players(players, players_size);
+	sort_players(players, 0, players_size - 1, players_size);
 
 	int result = total_winnings(players, players_size);
 	printf("Result: %d\n", result);
@@ -197,15 +198,14 @@ static size_t sort_partition(Player* players, size_t low, size_t high)
 
 	return greatest_idx + 1;
 }
-static void sort_players(Player* players, size_t low, size_t high)
+static void sort_players(Player* players, size_t low, size_t high, size_t size)
 {
-	if (low < high) {
-		size_t pivot = sort_partition(players, low, high);
+	if (low >= high || high >= size ) return;
 
-		sort_players(players, low, pivot - 1);
-		sort_players(players, pivot + 1, high);
-	}
+	size_t pivot = sort_partition(players, low, high);
 
+	sort_players(players, low, pivot - 1, size);
+	sort_players(players, pivot + 1, high, size);
 }
 
 static int compare_players(const Player player_1, const Player player_2) 
@@ -220,7 +220,7 @@ static int compare_players(const Player player_1, const Player player_2)
 	}
 
 	size_t i = 0;
-	while (player_1.cards[i] == player_2.cards[i] && i < HAND_SIZE) {
+	while (i < HAND_SIZE && player_1.cards[i] == player_2.cards[i]) {
 		i++;
 	}
 	return player_1.cards[i] > player_2.cards[i];

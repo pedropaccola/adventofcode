@@ -45,7 +45,7 @@ static int compare_players(const Player, const Player);
 static void swap_players(Player*, Player*);
 
 static size_t sort_partition(Player*, size_t, size_t);
-static void sort_players(Player*, size_t, size_t);
+static void sort_players(Player*, size_t, size_t, size_t);
 
 int main(int argc, char* argv[]) 
 {
@@ -63,8 +63,10 @@ int main(int argc, char* argv[])
 		set_scoring(&players[i]);
 	}
 
-	sort_players(players, 0, players_size - 1);
+	// print_players(players, players_size);
 
+	sort_players(players, 0, players_size - 1, players_size);
+	print_players(players, players_size);
 	int result = total_winnings(players, players_size);
 	printf("Result: %d\n", result);
 
@@ -118,7 +120,7 @@ static int parse_card(const char card)
 		case '8':
 		case '9': return (card - '0');
 		case 'T': return 10;
-		case 'J': return 11;
+		case 'J': return 1;
 		case 'Q': return 12;
 		case 'K': return 13;
 		case 'A': return 14;
@@ -129,25 +131,26 @@ static int parse_card(const char card)
 static void set_scoring(Player* player) 
 {
 	int cards[15] = {0};
-	for (size_t i = 0; i < 5; i++) {
+	for (size_t i = 0; i < HAND_SIZE; i++) {
 		cards[player->cards[i]]++;
 	}
 
 	int has_two = 0;
 	int has_three = 0;
 	for (size_t i = 2; i < 15; i++) {
-		if (cards[i] == 2) {
+		int cards_amount = (cards[i] == 0) ? cards[i] : cards[i] + cards[1];
+		if (cards_amount == 2 && i != 1) {
 			if (has_two) {
 				player->scoring = TYPE_TWO_PAIR;
 				return;
 			}
 			has_two = 1;
-		} else if (cards[i] == 3) {
+		} else if (cards_amount == 3) {
 			has_three = 1;
-		} else if (cards[i] == 4) {
+		} else if (cards_amount == 4) {
 			player->scoring = TYPE_FOUR_OF_A_KIND;
 			return;
-		} else if (cards[i] == 5) {
+		} else if (cards_amount == 5) {
 			player->scoring = TYPE_FIVE_OF_A_KIND;
 			return;
 		}
@@ -184,46 +187,59 @@ static void print_players(const Player* players, size_t size)
 
 static size_t sort_partition(Player* players, size_t low, size_t high)
 {
-	size_t greatest_idx = low - 1;
+	Player pivot = players[high];
+	size_t temp_pivot = low - 1;
 
 	for (size_t i = low; i < high; i++) {
-		if (!compare_players(players[i], players[high])) {
-			greatest_idx++;
-			swap_players(&players[i], &players[greatest_idx]);
+
+		int result = compare_players(players[i], pivot);
+		if (result != 1) {
+			temp_pivot++;
+			swap_players(&players[i], &players[temp_pivot]);
 		}
 	}
 	
-	swap_players(&players[greatest_idx+1], &players[high]);
+	temp_pivot++;
+	swap_players(&players[temp_pivot], &players[high]);
 
-	return greatest_idx + 1;
+	return temp_pivot;
 }
-static void sort_players(Player* players, size_t low, size_t high)
+static void sort_players(Player* players, size_t low, size_t high, size_t size)
 {
-	if (low < high) {
-		size_t pivot = sort_partition(players, low, high);
+	if (low >= high || high >= size) return;
 
-		sort_players(players, low, pivot - 1);
-		sort_players(players, pivot + 1, high);
-	}
+	size_t pivot = sort_partition(players, low, high);
+
+	sort_players(players, low, pivot - 1, size);
+	sort_players(players, pivot + 1, high, size);
 
 }
 
 static int compare_players(const Player player_1, const Player player_2) 
 {
 	/* 
-	 * return 1 if player 1 > player 2
-	 * return 0 otherwise
+	 * player 1 > player 2 return 1
+	 * player 1 < player 2 return -1
+	 * player 1 == player 2 return 0
 	 * supposing two tied players won't have the same cards in the same order
 	*/ 
-	if (player_1.scoring != player_2.scoring) {
-		return player_1.scoring > player_2.scoring;
-	}
+	if (player_1.scoring > player_2.scoring) {
+		return 1;
+	} else if (player_1.scoring < player_2.scoring) {
+		return -1;
+	} else {
+		size_t i = 0;
+		while (i < HAND_SIZE && player_1.cards[i] == player_2.cards[i]) {
+			i++;
+		}
 
-	size_t i = 0;
-	while (player_1.cards[i] == player_2.cards[i] && i < HAND_SIZE) {
-		i++;
+		if (i < HAND_SIZE && player_1.cards[i] > player_2.cards[i]) {
+			return 1;
+		} else if (i < HAND_SIZE && player_1.cards[i] < player_2.cards[i]) {
+			return -1;
+		}
 	}
-	return player_1.cards[i] > player_2.cards[i];
+	return 0;
 }
 static void swap_players(Player* player_1, Player* player_2)
 {
