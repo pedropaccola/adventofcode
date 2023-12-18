@@ -14,11 +14,14 @@ typedef struct {
 static size_t name_to_index(const char*);
 static void print_node(const Node*, const int);
 static int parse_file(const char*);
+static long gcd(const long, const long);
+static long lcm(const long, const long*);
 
-static Node nodes[NUM_LETTERS * NUM_LETTERS * NUM_LETTERS] = {0}; // All possible permutations
+static Node nodes[NUM_LETTERS * NUM_LETTERS * NUM_LETTERS] = {0};    // Size for all possible permutations; doesn't require a count;
+static Node* a_nodes[NUM_LETTERS * NUM_LETTERS * NUM_LETTERS] = {0}; // Nodes ending with 'A'. Just pointers to the array above;
+static long results[NUM_LETTERS * NUM_LETTERS * NUM_LETTERS] = {0};   // Result for each a_node. It appears to be cyclical
+static size_t a_nodes_count = 0;				     // Size for both a_nodes and results
 static char directions[BUFFER_SIZE] = {0};
-static size_t index_origin = 0; 
-static size_t index_destination = 0;
 
 int main(int argc, char* argv[]) 
 {
@@ -32,31 +35,34 @@ int main(int argc, char* argv[])
 		return 1;
 	}
 	
-	index_origin = name_to_index("AAA");
-	index_destination = name_to_index("ZZZ");
-
 	size_t directions_length = strlen(directions);
-	int steps = 0;
-	// printf("DIRECTIONS: %s\n", directions);
-	// printf("DIRECTIONS: Length %zu\n", directions_length);
-	// printf("INDEXES: Origin %zu, Dest %zu\n", index_origin, index_destination); 
-	// printf("Start:\n");
 
-	for (size_t i = 0; i < directions_length; i = (i+1) % directions_length) { 
-		if (index_origin == index_destination) break;
+	for (size_t j = 0; j < a_nodes_count; j++) { 
+		printf("Checking node %s\n", a_nodes[j]->name);
+		long steps = 0;
+		for (size_t i = 0; i < directions_length; i = (i+1) % directions_length) { 
+			if (directions[i] == 'R') {
+				a_nodes[j] = &nodes[a_nodes[j]->right];
+			} else {
+				a_nodes[j] = &nodes[a_nodes[j]->left];
+			}
+			steps++;
 
-		// printf("Origin: %zu, Direction %c\n", index_origin, directions[i]);
-		// print_node(&nodes[index_origin], index_origin);
-		if (directions[i] == 'R') {
-			index_origin = nodes[index_origin].right;	
-		} else {
-			index_origin = nodes[index_origin].left;
+			if (a_nodes[j]->name[2] == 'Z'){
+				printf("    Reached Node %s, steps: %ld\n", a_nodes[j]->name, steps);
+				results[j] = steps;
+				break;
+			}
 		}
-		steps++;
-		// printf("    Next index: %zu, Steps: %d\n", index_origin, steps);
 	}
 
-	printf("Result: %d\n", steps);
+	printf("Results:\n");
+	for (size_t i = 0; i < a_nodes_count; i++) {
+		printf("For element %zu, Steps: %ld\n", i, results[i]);
+	}
+
+	long result = lcm(a_nodes_count, results);
+	printf("LCM = %ld\n", result);
 
 	return 0;
 }
@@ -82,7 +88,13 @@ static int parse_file(const char* filename)
 			nodes[index].right= name_to_index(&buffer[12]);
 			strncpy(nodes[index].name, &buffer[0], NODE_NAME_SIZE);
 
-			// print_node(&nodes[index], index);
+			if (nodes[index].name[2] == 'A') {
+				a_nodes[a_nodes_count] = &nodes[index];
+				if (a_nodes[a_nodes_count] == NULL) {printf("Failed\n");}
+				print_node(a_nodes[a_nodes_count], a_nodes_count);
+				a_nodes_count++;
+			}
+
 		} else {
 			strcpy(directions, buffer);
 			char* newline = strchr(directions, '\n');
@@ -110,4 +122,16 @@ static void print_node(const Node* node, const int index)
 {
 	printf("Node: %s, Index: %d, Left: %d, Right: %d\n",
 		node->name, index, node->left, node->right);
+}
+
+static long gcd(const long a, const long b)
+{
+	if (b == 0) return a;
+	else return gcd(b, a%b);
+}
+
+static long lcm(const long num_args, const long* args)
+{
+	if (num_args == 1) return args[0];
+	return (args[0] * lcm(num_args - 1, args + 1)) / gcd(args[0], lcm(num_args - 1, args + 1));
 }
