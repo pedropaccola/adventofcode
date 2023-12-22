@@ -4,7 +4,7 @@
 
 
 #define DIR_COUNT 4
-#define MAX_QUEUE_SIZE 1024
+#define MAX_STACK_SIZE 51200
 #define BUFFER_SIZE 1024
 #define ASCII_SIZE 128
 
@@ -36,21 +36,21 @@ static int dx[DIR_COUNT] = { 0, 1, 0, -1 };
 static int dy[DIR_COUNT] = { -1, 0, 1, 0 };
 
 static void populate_allowed_directions(int*);
-static int  bfs(int**, const Vertex, const size_t, const size_t);
+static int  dfs(int**, const Vertex, const size_t, const size_t);
 
 
 typedef struct {
-    size_t front, rear;
-    size_t size, capacity;
+    size_t top;
+    size_t capacity; 
     Vertex* elements;
-} Queue;
+} Stack;
 
-static Queue* new_queue(const size_t); 
-static void   free_queue(void*); 
-static int    is_empty(const Queue*);
-static int    is_full(const Queue*);
-static void   enqueue(Queue*, const Vertex);
-static Vertex dequeue(Queue*);
+static Stack* new_stack(const size_t); 
+static void   free_stack(void*); 
+static int    is_empty(const Stack*);
+static int    is_full(const Stack*);
+static void   push(Stack*, const Vertex);
+static Vertex pop(Stack*);
 
 
 int main(int argc, char* argv[]) 
@@ -67,7 +67,7 @@ int main(int argc, char* argv[])
         return 1;
     }
 
-    int result = bfs(maze, s_pos, maze_size.row, maze_size.col);
+    int result = dfs(maze, s_pos, maze_size.row, maze_size.col);
 
     printf("Result: %d\n", result);
 
@@ -181,17 +181,19 @@ static void free_2Darray(int** array, size_t rows)
     free(array);
 }
 
-static int bfs(int** maze, const Vertex start, const size_t rows, const size_t cols)
+static int dfs(int** maze, const Vertex start, const size_t rows, const size_t cols)
 {
-    Queue* queue = new_queue(MAX_QUEUE_SIZE);
+    Stack* stack = new_stack(MAX_STACK_SIZE);
     int** visited = new_2Darray(rows, cols); 
-    int max_value = 0;
+    Vertex vertices[MAX_STACK_SIZE] = {0};
+    size_t distance = 1;
 
-    enqueue(queue, start);
-    visited[start.row][start.col]++;
+    push(stack, start);
+    visited[start.row][start.col] = distance;
 
-    while (!is_empty(queue)) {
-        Vertex current = dequeue(queue);	
+    while (!is_empty(stack)) {
+        Vertex current = pop(stack);	
+        vertices[distance-1] = current;
 
         for (size_t dir = 0; dir <= DIR_COUNT; dir++) {
             if ((maze[current.row][current.col] & (1 << dir)) != 0) {   // Bit manipulation
@@ -206,16 +208,22 @@ static int bfs(int** maze, const Vertex start, const size_t rows, const size_t c
                     !visited[next.row][next.col] &&                     // Not visited
                     (maze[next.row][next.col] & (1 << opposite_dir)) != 0) {    // Next pipe compatible (opposite_dir)
 
-                    enqueue(queue, next);
-                    int sum = visited[current.row][current.col] + 1;
-                    visited[next.row][next.col] = sum;
-                    max_value = (sum > max_value) ? sum : max_value;
+                    push(stack, next);
+
+                    distance++;
+                    visited[next.row][next.col] = distance;
+                    break;  // For DFS in a circular loop, I just want 1 direction on stack.
                 }
             }
         }
     }
 
     printf("Adjacency matrix\n");
+    printf("        ");
+    for (size_t i = 0; i < cols; i++) {
+        printf("Col %zu\t", i+1);
+    }
+    printf("\n");
     for (size_t i = 0; i < rows; i++) {
         printf("Row %zu: ", i+1);
         for (size_t j = 0; j < cols; j++) {
@@ -223,57 +231,74 @@ static int bfs(int** maze, const Vertex start, const size_t rows, const size_t c
         }
         printf("\n");
     }
+    printf("Max distance: %zu\n", distance);
+
+    // Shoelace Formula
+    int area = 0;
+    for (size_t i = 0; i < distance; i++) {
+        if (i == distance - 1) {
+            // area += (vertices[i].row + vertices[0].row) * (vertices[i].col - vertices[0].col);
+            area += (vertices[i].col * vertices[0].row) - (vertices[0].col * vertices[i].row);
+        } else {
+            // area += (vertices[i].row + vertices[i+1].row) * (vertices[i].col - vertices[i+1].col);
+            area += (vertices[i].col * vertices[i+1].row) - (vertices[i+1].col * vertices[i].row);
+        }
+    }
+    area /= 2;
+    area = (area >= 0) ? area : -area;
+    printf("Area: %d\n", area);
+
+    // Pick's theorem A = i + b/2 - 1
+    int inner = area - distance/2 + 1;
+
 
     free_2Darray(visited, rows);
-    free_queue(queue);
-    return max_value - 1;   // Because started at 1, but should have started at 0;
+    free_stack(stack);
+    return inner;
 }
 
-static Queue* new_queue(const size_t capacity)
-{
-    Queue *queue = (Queue*) malloc(sizeof(Queue));
-    if (!queue) { return NULL; }
-    queue->front = 0;
-    queue->rear = 0;
-    queue->size = 0;
-    queue->capacity = capacity;
-    queue->elements = (Vertex*) malloc(capacity * sizeof(Vertex));
-    if (!queue->elements) { free(queue); return NULL; }
 
-    return queue;
+static Stack* new_stack(const size_t capacity)
+{
+    Stack *stack = (Stack*) malloc(sizeof(Stack));
+    if (!stack) { return NULL; }
+    stack->top= 0;
+    stack->capacity = capacity;
+    stack->elements = (Vertex*) malloc(capacity * sizeof(Vertex));
+    if (!stack->elements) { free(stack); return NULL; }
+
+    return stack;
 }
 
-static void free_queue(void* ptr) 
+static void free_stack(void* ptr) 
 {
-    Queue* queue = (Queue*) ptr;
-    free(queue->elements);
-    free(queue); 
+    Stack* stack = (Stack*) ptr;
+    free(stack->elements);
+    free(stack); 
 }
 
-static int is_empty(const Queue* queue) 
-{ return (queue->size == 0); }
+static int is_empty(const Stack* stack) 
+{ return (stack->top == 0); }
 
-static int is_full(const Queue* queue) 
-{ return (queue->size == queue->capacity); }
+static int is_full(const Stack* stack) 
+{ return (stack->top == stack->capacity); }
 
-static void enqueue(Queue* queue, const Vertex value)
+static void push(Stack* stack, const Vertex value)
 {
-    if (is_full(queue)) {
-        fprintf(stderr, "ERROR: Can't enqueue, queue full %s:%d\n", __FILE__, __LINE__);
+    if (is_full(stack)) {
+        fprintf(stderr, "ERROR: Can't push, stack full %s:%d\n", __FILE__, __LINE__);
     }
-    queue->elements[queue->rear] = value;
-    queue->rear = (queue->rear + 1) % queue->capacity;
-    queue->size++;
+    stack->elements[stack->top] = value;
+    stack->top++;
     return;
 }
 
-static Vertex dequeue(Queue* queue)
+static Vertex pop(Stack* stack)
 {
-    if (is_empty(queue)) {
-        fprintf(stderr, "ERROR: Can't dequeue, queue empty%s:%d\n", __FILE__, __LINE__);
+    if (is_empty(stack)) {
+        fprintf(stderr, "ERROR: Can't pop, stack empty%s:%d\n", __FILE__, __LINE__);
     }
-    Vertex value = queue->elements[queue->front];
-    queue->front = (queue->front + 1) % queue->capacity;
-    queue->size--;
+    stack->top--;
+    Vertex value = stack->elements[stack->top];
     return value;
 }
