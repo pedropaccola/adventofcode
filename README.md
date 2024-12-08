@@ -1,7 +1,7 @@
-# c-adventofcode-2023
+# adventofcode
 Study Project//
 
-Advent of code 2023 solved in C.
+Advent of code problems.
 
 From:
-- [Advent of code 2023](https://adventofcode.com/2023)
+- [Advent of code](https://adventofcode.com)
